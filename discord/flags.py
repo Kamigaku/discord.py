@@ -34,6 +34,7 @@ __all__ = (
     'MemberCacheFlags',
 )
 
+
 class flag_value:
     def __init__(self, func):
         self.flag = func(None)
@@ -50,8 +51,10 @@ class flag_value:
     def __repr__(self):
         return '<flag_value flag={.flag!r}>'.format(self)
 
+
 class alias_flag_value(flag_value):
     pass
+
 
 def fill_with_flags(*, inverted=False):
     def decorator(cls):
@@ -68,7 +71,9 @@ def fill_with_flags(*, inverted=False):
             cls.DEFAULT_VALUE = 0
 
         return cls
+
     return decorator
+
 
 # n.b. flags must inherit from this and use the decorator above
 class BaseFlags:
@@ -117,6 +122,7 @@ class BaseFlags:
             self.value &= ~o
         else:
             raise TypeError('Value to set for %s must be a bool.' % self.__class__.__name__)
+
 
 @fill_with_flags(inverted=True)
 class SystemChannelFlags(BaseFlags):
@@ -241,6 +247,7 @@ class MessageFlags(BaseFlags):
         An urgent message is one sent by Discord Trust and Safety.
         """
         return 16
+
 
 @fill_with_flags()
 class PublicUserFlags(BaseFlags):
@@ -781,6 +788,23 @@ class Intents(BaseFlags):
         This does not correspond to any attributes or classes in the library in terms of cache.
         """
         return 1 << 14
+
+    @flag_value
+    def scheduled_events(self):
+        """:class:`bool`: Whether guild scheduled related events are enabled.
+
+        This corresponds to the following events:
+
+        - :func:`on_scheduled_event_create` (only for guilds)
+        - :func:`on_scheduled_event_update` (only for guilds)
+        - :func:`on_scheduled_event_delete` (only for guilds)
+        - :func:`on_scheduled_event_user_add` (only for guilds)
+        - :func:`on_scheduled_event_user_remove` (only for guilds)
+
+        This does not correspond to any attributes or classes in the library in terms of cache.
+        """
+        return 1 << 16
+
 
 @fill_with_flags()
 class MemberCacheFlags(BaseFlags):
