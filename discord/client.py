@@ -29,8 +29,10 @@ import logging
 import signal
 import sys
 import traceback
+import typing
 
 import aiohttp
+import discord
 
 from .user import User, Profile
 from .invite import Invite
@@ -55,6 +57,7 @@ from .iterators import GuildIterator
 from .appinfo import AppInfo
 
 log = logging.getLogger(__name__)
+
 
 def _cancel_tasks(loop):
     try:
@@ -1492,3 +1495,55 @@ class Client:
         """
         data = await self.http.get_webhook(webhook_id)
         return Webhook.from_state(data, state=self._connection)
+
+    #  COMMANDS FUNCTION
+
+    async def fetch_global_commands(self, application_id: int):
+        data = await self.http.retrieve_global_commands(application_id=application_id)
+        application_commands = {}
+        for element in data:
+            application_command = discord.ext.commands.ApplicationCommand.from_payload(element)
+            application_commands[application_command.name] = application_command
+        return application_commands
+
+    async def fetch_guild_commands(self, application_id: int, guild_id: int):
+        data = await self.http.retrieve_guild_commands(application_id=application_id,
+                                                       guild_id=guild_id)
+        application_commands = {}
+        for element in data:
+            application_command = discord.ext.commands.ApplicationCommand.from_payload(element)
+            application_commands[application_command.name] = application_command
+        return application_commands
+
+    async def delete_global_command(self, application_id: int, command):
+        result = await self.http.delete_global_command(application_id=application_id,
+                                                       command_id=command.id)
+        return result
+
+    async def delete_guild_command(self, application_id: int, guild_id: int, command):
+        result = await self.http.delete_guild_command(application_id=application_id,
+                                                      guild_id=guild_id,
+                                                      command_id=command.id)
+        return result
+
+    async def update_global_command(self, application_id: int, command):
+        result = await self.http.update_global_command(application_id=application_id,
+                                                       command=command)
+        return result
+
+    async def update_guild_command(self, application_id: int, guild_id: int, command):
+        result = await self.http.update_guild_command(application_id=application_id,
+                                                      guild_id=guild_id,
+                                                      command=command)
+        return result
+
+    async def add_global_command(self, application_id: int, command):
+        result = await self.http.add_global_command(application_id=application_id,
+                                                    command=command)
+        return result
+
+    async def add_guild_command(self, application_id: int, guild_id: int, command):
+        result = await self.http.add_guild_command(application_id=application_id,
+                                                   guild_id=guild_id,
+                                                   command=command)
+        return result

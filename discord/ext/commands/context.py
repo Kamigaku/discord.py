@@ -24,10 +24,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-import discord.abc
-import discord.utils
+from discord.abc import Messageable
+from discord.utils import cached_property, copy_doc
+from discord import Message
 
-class Context(discord.abc.Messageable):
+
+class Context(Messageable):
     r"""Represents the context in which a command is being invoked under.
 
     This class contains a lot of meta data to help you understand more about
@@ -222,26 +224,26 @@ class Context(discord.abc.Messageable):
             return None
         return self.command.cog
 
-    @discord.utils.cached_property
+    @cached_property
     def guild(self):
         """Optional[:class:`.Guild`]: Returns the guild associated with this context's command. None if not available."""
         return self.message.guild
 
-    @discord.utils.cached_property
+    @cached_property
     def channel(self):
         """Union[:class:`.abc.Messageable`]: Returns the channel associated with this context's command.
         Shorthand for :attr:`.Message.channel`.
         """
         return self.message.channel
 
-    @discord.utils.cached_property
+    @cached_property
     def author(self):
         """Union[:class:`~discord.User`, :class:`.Member`]:
         Returns the author associated with this context's command. Shorthand for :attr:`.Message.author`
         """
         return self.message.author
 
-    @discord.utils.cached_property
+    @cached_property
     def me(self):
         """Union[:class:`.Member`, :class:`.ClientUser`]:
         Similar to :attr:`.Guild.me` except it may return the :class:`.ClientUser` in private message contexts.
@@ -335,6 +337,6 @@ class Context(discord.abc.Messageable):
         except CommandError as e:
             await cmd.on_help_command_error(self, e)
 
-    @discord.utils.copy_doc(discord.Message.reply)
+    @copy_doc(Message.reply)
     async def reply(self, content=None, **kwargs):
         return await self.message.reply(content, **kwargs)

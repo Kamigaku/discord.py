@@ -26,12 +26,17 @@ DEALINGS IN THE SOFTWARE.
 
 import inspect
 import copy
+import typing
+
 from ._types import _BaseCommand
+from .commands import ApplicationCommand
 
 __all__ = (
     'CogMeta',
     'Cog',
 )
+
+
 
 class CogMeta(type):
     """A metaclass for defining a cog.
@@ -103,8 +108,10 @@ class CogMeta(type):
             description = inspect.cleandoc(attrs.get('__doc__', ''))
         attrs['__cog_description__'] = description
 
+        application_commands = {}
         commands = {}
         listeners = {}
+
         no_bot_cog = 'Commands or listeners must not start with cog_ or bot_ (in method {0.__name__}.{1})'
 
         new_cls = super().__new__(cls, name, bases, attrs, **kwargs)
@@ -124,6 +131,8 @@ class CogMeta(type):
                     if elem.startswith(('cog_', 'bot_')):
                         raise TypeError(no_bot_cog.format(base, elem))
                     commands[elem] = value
+                elif isinstance(value, ApplicationCommand):
+                    application_commands[elem] = value
                 elif inspect.iscoroutinefunction(value):
                     try:
                         getattr(value, '__cog_listener__')
@@ -134,7 +143,9 @@ class CogMeta(type):
                             raise TypeError(no_bot_cog.format(base, elem))
                         listeners[elem] = value
 
-        new_cls.__cog_commands__ = list(commands.values()) # this will be copied in Cog.__new__
+        # those will be copied in Cog.__new__
+        new_cls.__cog_commands__ = list(commands.values())
+        new_cls.__cog_application_commands__ = list(application_commands.values())
 
         listeners_as_list = []
         for listener in listeners.values():
@@ -144,6 +155,7 @@ class CogMeta(type):
                 listeners_as_list.append((listener_name, listener.__name__))
 
         new_cls.__cog_listeners__ = listeners_as_list
+
         return new_cls
 
     def __init__(self, *args, **kwargs):
@@ -153,9 +165,11 @@ class CogMeta(type):
     def qualified_name(cls):
         return cls.__cog_name__
 
+
 def _cog_special_method(func):
     func.__cog_special_method__ = None
     return func
+
 
 class Cog(metaclass=CogMeta):
     """The base class that all cogs must inherit from.
@@ -182,6 +196,12 @@ class Cog(metaclass=CogMeta):
             cmd.qualified_name: cmd
             for cmd in self.__cog_commands__
         }
+
+        self.__cog_application_commands__ = []
+        for application_command in cls.__cog_application_commands__:
+            application_command_copy = copy.copy(application_command)
+            application_command_copy.cog = self
+            self.__cog_application_commands__.append(application_command_copy)
 
         # Update the Command instances dynamically as well
         for command in self.__cog_commands__:
@@ -210,6 +230,20 @@ class Cog(metaclass=CogMeta):
                 This does not include subcommands.
         """
         return [c for c in self.__cog_commands__ if c.parent is None]
+
+    def get_application_commands(self):
+        r"""
+                Returns
+                --------
+                List[:class:`.Command`]
+                    A :class:`list` of :class:`.ApplicationCommand`\s that are
+                    defined inside this cog.
+
+                    .. note::
+
+                        This does not include subcommands.
+                """
+        return [ac for ac in self.__cog_application_commands__]
 
     @property
     def qualified_name(self):
@@ -294,6 +328,7 @@ class Cog(metaclass=CogMeta):
             # to pick it up but the metaclass unfurls the function and
             # thus the assignments need to be on the actual function
             return func
+
         return decorator
 
     def has_error_handler(self):
@@ -425,6 +460,9 @@ class Cog(metaclass=CogMeta):
         # Outside of, memory errors and the like...
         for name, method_name in self.__cog_listeners__:
             bot.add_listener(getattr(self, method_name), name)
+
+        # handling application commands
+        #retrieved_commands = await retrieve_global_commands(bot)
 
         return self
 

@@ -978,6 +978,7 @@ class BotBase(GroupMixin):
     async def on_message(self, message):
         await self.process_commands(message)
 
+
 class Bot(BotBase, discord.Client):
     """Represents a discord bot.
 
@@ -1052,7 +1053,90 @@ class Bot(BotBase, discord.Client):
 
         .. versionadded:: 1.7
     """
-    pass
+
+    async def on_ready(self):
+        # Retrieve cogs' application commands
+        defined_application_commands = {}
+        for cog_name, cog in self.cogs.items():
+            cog_application_commands = cog.get_application_commands()
+            for cog_command in cog_application_commands:
+                if cog_command.guild_id not in defined_application_commands:
+                    defined_application_commands[cog_command.guild_id] = {}
+                defined_application_commands[cog_command.guild_id][cog_command.name] = cog_command
+
+        # Register application commands
+        application_info = await self.application_info()
+
+        # Ici on récupère les commandes existantes
+        application_commands = {None: await self.fetch_global_commands(application_info.id)}
+        for guild in self.guilds:
+            application_commands[guild.id] = await self.fetch_guild_commands(application_info.id, guild.id)
+
+        commands_to_delete = {}
+        commands_to_update = {}
+
+        # On vient comparer les commandes récupérées pour savoir quoi mettre à jour
+        for guild_id in application_commands:
+            if guild_id not in defined_application_commands:
+                commands_to_delete[guild_id] = application_commands[guild_id]
+            else:
+                for command_name, command in application_commands[guild_id].items():
+                    if command_name not in defined_application_commands[guild_id]:
+                        if guild_id not in commands_to_delete:
+                            commands_to_delete[guild_id] = []
+                        commands_to_delete[guild_id].append(command)
+                    elif command != defined_application_commands[guild_id][command_name]:
+                        if guild_id not in commands_to_update:
+                            commands_to_update[guild_id] = []
+                        commands_to_update[guild_id].append(command)
+
+        # On vient ensuite voir les commandes à ajouter
+        commands_to_add = {}
+        for guild_id in defined_application_commands:
+            if guild_id not in application_commands:
+                commands_to_add[guild_id] = defined_application_commands[guild_id]
+            else:
+                commands_to_add[guild_id] = {}
+                for command_name, command in defined_application_commands[guild_id].items():
+                    if command_name not in application_commands[guild_id]:
+                        commands_to_add[guild_id][command_name] = command
+
+        # On supprime les commandes au niveau guildes
+        for guild_id, commands in commands_to_delete.items():
+            for command in commands:
+                if guild_id is None:
+                    await self.delete_global_command(application_id=application_info.id,
+                                                     command=command)
+                else:
+                    await self.delete_guild_command(application_id=application_info.id,
+                                                    guild_id=guild_id,
+                                                    command=command)
+
+        # On modifie les commandes à modifier
+        for guild_id, commands in commands_to_update.items():
+            for command in commands:
+                if guild_id is None:
+                    await self.update_global_command(application_id=application_info.id,
+                                                     command=command)
+                else:
+                    await self.update_guild_command(application_id=application_info.id,
+                                                    guild_id=guild_id,
+                                                    command=command)
+
+        # On vient ajouter les nouvelles commandes
+        for guild_id, commands in commands_to_add.items():
+            for command_name, command in commands.items():
+                if guild_id is None:
+                    await self.add_global_command(application_id=application_info.id,
+                                                  command=command)
+                else:
+                    await self.add_guild_command(application_id=application_info.id,
+                                                 guild_id=guild_id,
+                                                 command=command)
+
+
+        pass
+
 
 class AutoShardedBot(BotBase, discord.AutoShardedClient):
     """This is similar to :class:`.Bot` except that it is inherited from
